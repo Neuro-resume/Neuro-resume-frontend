@@ -1,24 +1,58 @@
 import { useState } from 'react';
-import './App.css';
+import { StartScreen } from './components/StartScreen';
+import { InterviewSession } from './components/InterviewSession';
+import { CompletionScreen } from './components/CompletionScreen';
 
-function App() {
-  const [count, setCount] = useState(0);
+type AppState = 'start' | 'interview' | 'complete';
+
+interface Message {
+  id: string;
+  role: 'ai' | 'user';
+  content: string;
+  timestamp: Date;
+}
+
+export default function App() {
+  const [appState, setAppState] = useState<AppState>('start');
+  const [_sessionData, setSessionData] = useState<Message[]>([]);
+
+  const handleStartSession = () => {
+    setAppState('interview');
+  };
+
+  const handleCompleteSession = (messages: Message[]) => {
+    setSessionData(messages);
+    setAppState('complete');
+  };
+
+  const handleCancelSession = () => {
+    if (
+      confirm(
+        'Вы уверены, что хотите завершить сеанс досрочно? Прогресс будет потерян.'
+      )
+    ) {
+      setAppState('start');
+      setSessionData([]);
+    }
+  };
+
+  const handleRestart = () => {
+    setAppState('start');
+    setSessionData([]);
+  };
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>Neuro Resume</h1>
-        <p>Welcome to your modern React application</p>
-      </header>
-      <main>
-        <div className="card">
-          <button onClick={() => setCount((count) => count + 1)}>
-            count is {count}
-          </button>
-        </div>
-      </main>
+    <div className="min-h-screen bg-background text-foreground">
+      {appState === 'start' && <StartScreen onStart={handleStartSession} />}
+      {appState === 'interview' && (
+        <InterviewSession
+          onComplete={handleCompleteSession}
+          onCancel={handleCancelSession}
+        />
+      )}
+      {appState === 'complete' && (
+        <CompletionScreen onRestart={handleRestart} />
+      )}
     </div>
   );
 }
-
-export default App;
