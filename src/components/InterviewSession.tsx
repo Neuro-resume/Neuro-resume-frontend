@@ -11,7 +11,7 @@ interface Message {
 }
 
 interface InterviewSessionProps {
-  onComplete: (messages: Message[]) => void;
+  onComplete: () => void;
   onCancel: () => void;
 }
 
@@ -81,7 +81,7 @@ export function InterviewSession({
       // Завершаем сессию после 5 пар вопрос-ответ
       if (messages.length >= 9) {
         setTimeout(() => {
-          onComplete([...messages, userMessage, aiMessage]);
+          onComplete();
         }, 1000);
       }
     }, 1500);

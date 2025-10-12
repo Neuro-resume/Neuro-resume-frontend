@@ -1,24 +1,17 @@
 import { Button } from './ui/button';
-import { Sparkles, LogOut } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/useAuth';
 
 interface StartScreenProps {
   onStart: () => void;
+  onShowProfile: () => void;
 }
 
 export function StartScreen({ onStart }: StartScreenProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4">
-      {/* Кнопка выхода */}
-      <div className="absolute top-4 right-4">
-        <Button variant="outline" onClick={logout} className="gap-2">
-          <LogOut className="w-4 h-4" />
-          Выйти
-        </Button>
-      </div>
-
+    <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] px-4">
       <div className="max-w-2xl w-full text-center space-y-8">
         <div className="space-y-4">
           <div className="flex justify-center">
