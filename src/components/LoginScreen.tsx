@@ -9,15 +9,20 @@ import {
   CardHeader,
   CardTitle,
 } from './ui/card';
-import { Lock, User, AlertCircle } from 'lucide-react';
+import { Lock, User, AlertCircle, Mail } from 'lucide-react';
+import { authApi } from '@/services/auth.api';
 
 interface LoginScreenProps {
-  onLogin: (username: string, password: string) => void;
+  onLogin: (username: string, password: string) => Promise<void>;
 }
 
 export function LoginScreen({ onLogin }: LoginScreenProps) {
+  const [mode, setMode] = useState<'login' | 'register'>('login');
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -26,25 +31,48 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
     setError('');
 
     if (!username.trim() || !password.trim()) {
-      setError('Пожалуйста, заполните все поля');
+      setError('Пожалуйста, заполните все обязательные поля');
+      return;
+    }
+
+    if (mode === 'register' && !email.trim()) {
+      setError('Email обязателен для регистрации');
       return;
     }
 
     setIsLoading(true);
 
-    // Симуляция проверки авторизации
-    setTimeout(() => {
-      // Простая проверка: admin/admin или любой логин с паролем "password"
-      if (
-        (username === 'admin' && password === 'admin') ||
-        password === 'password'
-      ) {
-        onLogin(username, password);
+    try {
+      if (mode === 'register') {
+        // Регистрация нового пользователя
+        await authApi.register({
+          username,
+          email,
+          password,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+        });
+        // После успешной регистрации автоматически входим
+        // (токен уже сохранен в authApi.register)
+        window.location.reload();
       } else {
-        setError('Неверный логин или пароль');
-        setIsLoading(false);
+        // Вход существующего пользователя
+        await onLogin(username, password);
       }
-    }, 1000);
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Ошибка ' + (mode === 'login' ? 'авторизации' : 'регистрации');
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const toggleMode = () => {
+    setMode(mode === 'login' ? 'register' : 'login');
+    setError('');
   };
 
   return (
@@ -60,13 +88,15 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
             НейроРезюме
           </CardTitle>
           <CardDescription className="text-center">
-            Войдите в систему для создания резюме
+            {mode === 'login'
+              ? 'Войдите в систему для создания резюме'
+              : 'Создайте аккаунт для начала работы'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">Логин</Label>
+              <Label htmlFor="username">Логин *</Label>
               <div className="relative">
                 <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -82,8 +112,57 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               </div>
             </div>
 
+            {mode === 'register' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your@email.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-9"
+                      disabled={isLoading}
+                      autoComplete="email"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">Имя</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="Иван"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={isLoading}
+                      autoComplete="given-name"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Фамилия</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Иванов"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      disabled={isLoading}
+                      autoComplete="family-name"
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="password">Пароль</Label>
+              <Label htmlFor="password">Пароль *</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -94,7 +173,9 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-9"
                   disabled={isLoading}
-                  autoComplete="current-password"
+                  autoComplete={
+                    mode === 'login' ? 'current-password' : 'new-password'
+                  }
                 />
               </div>
             </div>
@@ -111,32 +192,38 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
               className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
               disabled={isLoading}
             >
-              {isLoading ? 'Вход...' : 'Войти'}
+              {isLoading
+                ? mode === 'login'
+                  ? 'Вход...'
+                  : 'Регистрация...'
+                : mode === 'login'
+                  ? 'Войти'
+                  : 'Зарегистрироваться'}
             </Button>
 
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-              <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-2">
-                Тестовые данные для входа:
-              </p>
-              <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1">
-                <li>
-                  • Логин:{' '}
-                  <code className="font-mono bg-white dark:bg-gray-800 px-1 rounded">
-                    admin
-                  </code>{' '}
-                  / Пароль:{' '}
-                  <code className="font-mono bg-white dark:bg-gray-800 px-1 rounded">
-                    admin
-                  </code>
-                </li>
-                <li>
-                  • Любой логин с паролем:{' '}
-                  <code className="font-mono bg-white dark:bg-gray-800 px-1 rounded">
-                    password
-                  </code>
-                </li>
-              </ul>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                disabled={isLoading}
+              >
+                {mode === 'login'
+                  ? 'Нет аккаунта? Зарегистрируйтесь'
+                  : 'Уже есть аккаунт? Войдите'}
+              </button>
             </div>
+
+            {mode === 'login' && (
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-md">
+                <p className="text-sm text-blue-800 dark:text-blue-300 font-medium mb-2">
+                  💡 Нет аккаунта? Зарегистрируйтесь!
+                </p>
+                <p className="text-xs text-blue-700 dark:text-blue-400">
+                  Нажмите "Нет аккаунта? Зарегистрируйтесь" ниже кнопки входа
+                </p>
+              </div>
+            )}
           </form>
         </CardContent>
       </Card>
