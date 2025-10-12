@@ -1,13 +1,24 @@
 import { Button } from './ui/button';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, LogOut } from 'lucide-react';
+import { useAuth } from '@/contexts/useAuth';
 
 interface StartScreenProps {
   onStart: () => void;
 }
 
 export function StartScreen({ onStart }: StartScreenProps) {
+  const { user, logout } = useAuth();
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4">
+      {/* Кнопка выхода */}
+      <div className="absolute top-4 right-4">
+        <Button variant="outline" onClick={logout} className="gap-2">
+          <LogOut className="w-4 h-4" />
+          Выйти
+        </Button>
+      </div>
+
       <div className="max-w-2xl w-full text-center space-y-8">
         <div className="space-y-4">
           <div className="flex justify-center">
@@ -16,6 +27,12 @@ export function StartScreen({ onStart }: StartScreenProps) {
             </div>
           </div>
           <h1 className="text-5xl font-bold">НейроРезюме</h1>
+          {user && (
+            <p className="text-lg text-blue-600 dark:text-blue-400">
+              Добро пожаловать,{' '}
+              <span className="font-semibold">{user.username}</span>!
+            </p>
+          )}
           <p className="text-xl text-gray-600 dark:text-gray-400 max-w-lg mx-auto">
             Интеллектуальная система для создания резюме на основе диалога с ИИ
           </p>
