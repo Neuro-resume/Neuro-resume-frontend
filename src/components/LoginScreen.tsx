@@ -49,8 +49,6 @@ export function LoginScreen({ onLogin }: LoginScreenProps) {
           username,
           email,
           password,
-          firstName: firstName || undefined,
-          lastName: lastName || undefined,
         });
         // После успешной регистрации автоматически входим
         // (токен уже сохранен в authApi.register)

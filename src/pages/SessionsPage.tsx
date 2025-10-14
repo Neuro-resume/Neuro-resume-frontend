@@ -8,6 +8,10 @@ export function SessionsPage() {
     navigate(`/interview?sessionId=${sessionId}`);
   };
 
+  const handleViewResume = (sessionId: string) => {
+    navigate(`/preview?sessionId=${sessionId}`);
+  };
+
   const handleStartNewInterview = () => {
     navigate('/interview');
   };
@@ -15,6 +19,7 @@ export function SessionsPage() {
   return (
     <SessionsScreen
       onContinueSession={handleContinueSession}
+      onViewResume={handleViewResume}
       onStartNewInterview={handleStartNewInterview}
     />
   );

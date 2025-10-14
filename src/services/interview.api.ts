@@ -8,37 +8,21 @@ import type {
   SendMessageResponse,
   SessionMessagesResponse,
   CompleteInterviewResponse,
+  ResumeMarkdownPayload,
 } from '@/types/api';
 
 // Interview API Service
 export const interviewApi = {
   // Get all interview sessions
   getSessions: async (params?: {
-    status?: 'in_progress' | 'completed' | 'abandoned';
+    status?: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
     limit?: number;
     offset?: number;
   }): Promise<PaginatedResponse<InterviewSession>> => {
-    const response = await apiGet<{
-      data: InterviewSession[];
-      pagination: {
-        total: number;
-        limit: number;
-        offset: number;
-        has_more: boolean;
-      };
-    }>(
+    return apiGet<PaginatedResponse<InterviewSession>>(
       API_ENDPOINTS.INTERVIEW_SESSIONS,
       params as Record<string, string | number>
     );
-
-    // Преобразуем формат API {data, pagination} в {items, total, limit, offset, has_more}
-    return {
-      items: response.data,
-      total: response.pagination.total,
-      limit: response.pagination.limit,
-      offset: response.pagination.offset,
-      has_more: response.pagination.has_more,
-    };
   },
 
   // Create new interview session
@@ -85,6 +69,15 @@ export const interviewApi = {
   ): Promise<CompleteInterviewResponse> => {
     return apiPost<CompleteInterviewResponse>(
       API_ENDPOINTS.INTERVIEW_COMPLETE(sessionId)
+    );
+  },
+
+  // Get session resume markdown
+  getSessionResume: async (
+    sessionId: string
+  ): Promise<ResumeMarkdownPayload> => {
+    return apiGet<ResumeMarkdownPayload>(
+      API_ENDPOINTS.INTERVIEW_SESSION_RESUME(sessionId)
     );
   },
 };

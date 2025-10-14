@@ -8,6 +8,7 @@ import { CompletePage } from '@/pages/CompletePage';
 import { SessionsPage } from '@/pages/SessionsPage';
 import { ProfilePage } from '@/pages/ProfilePage';
 import { LoginPage } from '@/pages/LoginPage';
+import { PreviewPage } from '@/pages/PreviewPage';
 
 export const router = createBrowserRouter([
   {
@@ -61,6 +62,20 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <CompletePage />,
+      },
+    ],
+  },
+  {
+    path: '/preview',
+    element: (
+      <ProtectedRoute>
+        <InterviewLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      {
+        index: true,
+        element: <PreviewPage />,
       },
     ],
   },

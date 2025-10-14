@@ -16,38 +16,38 @@ import {
   XCircle,
   MessageSquare,
   Calendar,
-  Download,
-  ChevronRight,
   RefreshCw,
   Trash2,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { interviewApi } from '@/services/interview.api';
-import { resumeApi } from '@/services/resume.api';
-import type { InterviewSession, Resume } from '@/types/api';
+import type { InterviewSession } from '@/types/api';
 
 interface SessionsScreenProps {
   onContinueSession: (sessionId: string) => void;
+  onViewResume: (sessionId: string) => void;
   onStartNewInterview: () => void;
 }
 
 export function SessionsScreen({
   onContinueSession,
+  onViewResume,
   onStartNewInterview,
 }: SessionsScreenProps) {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
-  const [resumes, setResumes] = useState<Record<string, Resume>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [downloadingResumeId, setDownloadingResumeId] = useState<string | null>(
-    null
-  );
   const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
     null
   );
   const [completingSessionId, setCompletingSessionId] = useState<string | null>(
     null
   );
+  const [downloadingSessionId, setDownloadingSessionId] = useState<
+    string | null
+  >(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -82,7 +82,7 @@ export function SessionsScreen({
       });
       console.log('SessionsScreen: Получен ответ сессий:', sessionsResponse);
 
-      const newSessions = sessionsResponse.items || [];
+      const newSessions = sessionsResponse.data || [];
       const updatedSessions = reset
         ? newSessions
         : [...sessions, ...newSessions];
@@ -90,32 +90,9 @@ export function SessionsScreen({
       setTotal(sessionsResponse.total || 0);
       setHasMore(sessionsResponse.has_more || false);
 
-      // Загружаем резюме для всех загруженных сессий (с учетом новых)
-      const totalSessionsCount = updatedSessions.length;
-      const resumesResponse = await resumeApi.getResumes({
-        limit: Math.max(totalSessionsCount, 10),
-        offset: 0,
-      });
-      console.log('SessionsScreen: Получен ответ резюме:', resumesResponse);
-      const resumesBySession: Record<string, Resume> = {};
-
-      if (resumesResponse.items) {
-        resumesResponse.items.forEach((resume) => {
-          if (resume.sessionId) {
-            resumesBySession[resume.sessionId] = resume;
-          }
-        });
-      }
-
       console.log('SessionsScreen: Загружено сессий:', newSessions.length);
       console.log('SessionsScreen: Всего сессий:', sessionsResponse.total);
       console.log('SessionsScreen: Есть ещё:', sessionsResponse.has_more);
-      console.log(
-        'SessionsScreen: Загружено резюме:',
-        Object.keys(resumesBySession).length
-      );
-
-      setResumes(resumesBySession);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Ошибка загрузки данных';
@@ -133,21 +110,6 @@ export function SessionsScreen({
 
   const handleRefresh = () => {
     loadData(true);
-  };
-
-  const handleDownloadResume = async (
-    resumeId: string,
-    format: 'pdf' | 'docx' | 'txt' = 'pdf'
-  ) => {
-    try {
-      setDownloadingResumeId(resumeId);
-      await resumeApi.downloadResume(resumeId, format);
-    } catch (err) {
-      console.error('Ошибка скачивания резюме:', err);
-      setError(err instanceof Error ? err.message : 'Ошибка скачивания резюме');
-    } finally {
-      setDownloadingResumeId(null);
-    }
   };
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -196,13 +158,36 @@ export function SessionsScreen({
     }
   };
 
+  const handleDownloadResume = async (sessionId: string) => {
+    try {
+      setDownloadingSessionId(sessionId);
+      const data = await interviewApi.getSessionResume(sessionId);
+
+      // Создаем и скачиваем файл
+      const blob = new Blob([data.content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename || 'resume.md';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Ошибка скачивания резюме:', err);
+      setError(err instanceof Error ? err.message : 'Ошибка скачивания резюме');
+    } finally {
+      setDownloadingSessionId(null);
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return <Clock className="w-5 h-5 text-blue-500" />;
-      case 'abandoned':
+      case 'ABANDONED':
         return <XCircle className="w-5 h-5 text-gray-400" />;
       default:
         return <Clock className="w-5 h-5 text-gray-400" />;
@@ -211,11 +196,11 @@ export function SessionsScreen({
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'Завершено';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'В процессе';
-      case 'abandoned':
+      case 'ABANDONED':
         return 'Отменено';
       default:
         return status;
@@ -224,11 +209,11 @@ export function SessionsScreen({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'abandoned':
+      case 'ABANDONED':
         return 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400';
       default:
         return 'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-400';
@@ -316,22 +301,15 @@ export function SessionsScreen({
         ) : (
           <div className="space-y-4">
             {sessions.map((session) => {
-              const resume = resumes[session.id];
-              const isClickable = session.status === 'in_progress';
+              const hasResume = session.resume_markdown !== null;
+              const isInProgress = session.status === 'IN_PROGRESS';
+              const isCompleted = session.status === 'COMPLETED';
 
               return (
-                <Card
-                  key={session.id}
-                  className={`p-6 ${
-                    isClickable
-                      ? 'cursor-pointer hover:shadow-lg transition-all hover:border-blue-400'
-                      : ''
-                  }`}
-                  onClick={() => isClickable && onContinueSession(session.id)}
-                >
+                <Card key={session.id} className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      {/* Статус и язык */}
+                      {/* Статус */}
                       <div className="flex items-center gap-3 mb-3">
                         {getStatusIcon(session.status)}
                         <span
@@ -339,24 +317,58 @@ export function SessionsScreen({
                         >
                           {getStatusText(session.status)}
                         </span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {session.language === 'ru'
-                            ? '🇷🇺 Русский'
-                            : '🇬🇧 English'}
-                        </span>
-                        {isClickable && (
-                          <span className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                            Нажмите для продолжения
-                            <ChevronRight className="w-4 h-4" />
-                          </span>
-                        )}
                       </div>
 
                       {/* Кнопки действий для сессии */}
                       <div className="flex gap-2 mb-4">
-                        {session.status === 'in_progress' && !resume && (
+                        {/* Для сессий в статусе IN_PROGRESS - кнопка "Продолжить диалог" */}
+                        {isInProgress && (
                           <Button
                             size="sm"
+                            onClick={() => onContinueSession(session.id)}
+                            className="gap-2"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            Продолжить диалог
+                          </Button>
+                        )}
+
+                        {/* Для завершенных сессий с резюме - кнопка "Посмотреть резюме" */}
+                        {isCompleted && hasResume && (
+                          <Button
+                            size="sm"
+                            onClick={() => onViewResume(session.id)}
+                            className="gap-2"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Посмотреть резюме
+                          </Button>
+                        )}
+
+                        {/* Для завершенных сессий БЕЗ резюме - показать кнопку завершения */}
+                        {isCompleted && !hasResume && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCompleteSession(session.id);
+                            }}
+                            disabled={completingSessionId === session.id}
+                            className="gap-2"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            {completingSessionId === session.id
+                              ? 'Формирование резюме...'
+                              : 'Сформировать резюме'}
+                          </Button>
+                        )}
+
+                        {/* Кнопка завершения для незавершенных сессий */}
+                        {isInProgress && (
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleCompleteSession(session.id);
@@ -370,6 +382,27 @@ export function SessionsScreen({
                               : 'Завершить интервью'}
                           </Button>
                         )}
+
+                        {/* Кнопка скачивания резюме (для завершенных сессий с резюме) */}
+                        {isCompleted && hasResume && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDownloadResume(session.id);
+                            }}
+                            disabled={downloadingSessionId === session.id}
+                            className="gap-2"
+                          >
+                            <Download className="w-4 h-4" />
+                            {downloadingSessionId === session.id
+                              ? 'Скачивание...'
+                              : 'Скачать'}
+                          </Button>
+                        )}
+
+                        {/* Кнопка удаления с предупреждением */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -392,8 +425,8 @@ export function SessionsScreen({
                         <div className="flex items-center gap-2 text-sm">
                           <MessageSquare className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-600 dark:text-gray-400">
-                            {session.messageCount}{' '}
-                            {session.messageCount === 1
+                            {session.message_count}{' '}
+                            {session.message_count === 1
                               ? 'сообщение'
                               : 'сообщений'}
                           </span>
@@ -401,14 +434,14 @@ export function SessionsScreen({
                         <div className="flex items-center gap-2 text-sm">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           <span className="text-gray-600 dark:text-gray-400">
-                            {formatDate(session.createdAt)}
+                            {formatDate(session.created_at)}
                           </span>
                         </div>
-                        {session.completedAt && (
+                        {session.completed_at && (
                           <div className="flex items-center gap-2 text-sm col-span-2">
                             <CheckCircle className="w-4 h-4 text-green-500" />
                             <span className="text-gray-600 dark:text-gray-400">
-                              Завершено: {formatDate(session.completedAt)}
+                              Завершено: {formatDate(session.completed_at)}
                             </span>
                           </div>
                         )}
@@ -432,67 +465,18 @@ export function SessionsScreen({
                         </div>
                       </div>
 
-                      {/* Секции */}
-                      {session.progress.completedSections.length > 0 && (
-                        <div className="flex flex-wrap gap-2">
-                          {session.progress.completedSections.map((section) => (
-                            <span
-                              key={section}
-                              className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded text-xs"
-                            >
-                              ✓ {section}
+                      {/* Резюме готово */}
+                      {hasResume && (
+                        <div className="mt-4">
+                          <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                            <CheckCircle className="w-4 h-4" />
+                            <span className="font-medium">
+                              Резюме сгенерировано
                             </span>
-                          ))}
-                          {session.progress.currentSection &&
-                            session.status === 'in_progress' && (
-                              <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 rounded text-xs">
-                                ⟳ {session.progress.currentSection}
-                              </span>
-                            )}
+                          </div>
                         </div>
                       )}
                     </div>
-
-                    {/* Резюме (если есть) */}
-                    {resume && (
-                      <div className="flex flex-col gap-2">
-                        <div className="text-right mb-2">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                            Резюме готово
-                          </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400">
-                            {resume.template}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadResume(resume.id, 'pdf');
-                          }}
-                          disabled={downloadingResumeId === resume.id}
-                          className="gap-2"
-                        >
-                          <Download className="w-4 h-4" />
-                          {downloadingResumeId === resume.id
-                            ? 'Скачивание...'
-                            : 'Скачать PDF'}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadResume(resume.id, 'docx');
-                          }}
-                          disabled={downloadingResumeId === resume.id}
-                          className="gap-2"
-                        >
-                          <Download className="w-4 h-4" />
-                          Скачать DOCX
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 </Card>
               );

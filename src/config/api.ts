@@ -29,6 +29,7 @@ export const API_ENDPOINTS = {
   INTERVIEW_SESSION: (id: string) => `/interview/sessions/${id}`,
   INTERVIEW_MESSAGES: (id: string) => `/interview/sessions/${id}/messages`,
   INTERVIEW_COMPLETE: (id: string) => `/interview/sessions/${id}/complete`,
+  INTERVIEW_SESSION_RESUME: (id: string) => `/interview/sessions/${id}/resume`,
 
   // Resume
   RESUMES: '/resumes',

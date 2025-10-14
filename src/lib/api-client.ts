@@ -31,6 +31,10 @@ export function setAuthToken(token: string, expiresIn: number): void {
   localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
   const expiryTime = new Date().getTime() + expiresIn * 1000;
   localStorage.setItem(STORAGE_KEYS.TOKEN_EXPIRY, expiryTime.toString());
+  console.log(
+    'Токен сохранён в localStorage. Истекает:',
+    new Date(expiryTime).toLocaleString()
+  );
 }
 
 // Clear auth token
@@ -38,6 +42,7 @@ export function clearAuthToken(): void {
   localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
   localStorage.removeItem(STORAGE_KEYS.TOKEN_EXPIRY);
   localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+  console.log('Токен и данные пользователя удалены из localStorage');
 }
 
 // Base fetch wrapper with authentication and error handling

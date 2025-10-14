@@ -58,8 +58,8 @@ export function ChangePasswordDialog({
     try {
       setIsLoading(true);
       await userApi.changePassword({
-        currentPassword,
-        newPassword,
+        current_password: currentPassword,
+        new_password: newPassword,
       });
 
       setSuccess(true);

@@ -1,22 +1,26 @@
 import { Button } from './ui/button';
 import { Card } from './ui/card';
-import { CheckCircle2, FileText, Download, Loader2 } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, Loader2, Download, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { resumeApi } from '@/services/resume.api';
-import type { Resume } from '@/types/api';
+import { interviewApi } from '@/services/interview.api';
 
 interface CompletionScreenProps {
   sessionId?: string;
   onRestart: () => void;
+  onBack: () => void;
+  onViewPreview: () => void;
 }
 
 export function CompletionScreen({
   sessionId,
   onRestart,
+  onBack,
+  onViewPreview,
 }: CompletionScreenProps) {
-  const [resume, setResume] = useState<Resume | null>(null);
+  const [resumeMarkdown, setResumeMarkdown] = useState<string | null>(null);
+  const [resumeFilename, setResumeFilename] = useState<string>('resume.md');
   const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState<string | null>(null);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -28,20 +32,68 @@ export function CompletionScreen({
 
       try {
         setIsLoading(true);
-        // Получаем список резюме и находим последнее созданное для этой сессии
-        const resumes = await resumeApi.getResumes({ limit: 10, offset: 0 });
-        const sessionResume = resumes.items.find(
-          (r) => r.sessionId === sessionId
+        setError(null);
+
+        console.log(
+          'CompletionScreen: Загрузка резюме для sessionId:',
+          sessionId
         );
 
-        if (sessionResume) {
-          setResume(sessionResume);
+        // Сначала получаем информацию о сессии
+        const sessions = await interviewApi.getSessions();
+        console.log('CompletionScreen: Получены сессии:', sessions);
+
+        const session = sessions.data.find((s) => s.id === sessionId);
+        console.log('CompletionScreen: Найдена сессия:', session);
+
+        if (!session) {
+          setError('Сессия не найдена');
+          setIsLoading(false);
+          return;
+        }
+
+        // Проверяем, есть ли резюме в сессии
+        console.log(
+          'CompletionScreen: resume_markdown =',
+          session.resume_markdown
+        );
+
+        if (session.resume_markdown) {
+          console.log(
+            'CompletionScreen: Резюме найдено, длина:',
+            session.resume_markdown.length
+          );
+          setResumeMarkdown(session.resume_markdown);
+          setResumeFilename(`resume-${sessionId.slice(0, 8)}.md`);
+        } else {
+          // Если резюме нет, пробуем завершить интервью
+          console.log(
+            'Резюме не найдено в сессии, пробуем завершить интервью...'
+          );
+          setIsCompleting(true);
+
+          try {
+            const completeResponse =
+              await interviewApi.completeInterview(sessionId);
+            setResumeMarkdown(completeResponse.resume_markdown.content);
+            setResumeFilename(
+              completeResponse.resume_markdown.filename || 'resume.md'
+            );
+          } catch (completeError) {
+            console.error('Ошибка завершения интервью:', completeError);
+            setError(
+              'Не удалось получить резюме. Попробуйте завершить интервью.'
+            );
+          } finally {
+            setIsCompleting(false);
+          }
         }
       } catch (err) {
         const message =
           err instanceof Error ? err.message : 'Ошибка загрузки резюме';
         setError(message);
         console.error('Ошибка загрузки резюме:', err);
+        setIsCompleting(false);
       } finally {
         setIsLoading(false);
       }
@@ -50,55 +102,19 @@ export function CompletionScreen({
     fetchResume();
   }, [sessionId]);
 
-  const handleDownload = async (format: 'pdf' | 'docx' | 'txt') => {
-    if (!resume) return;
-
-    setIsDownloading(format);
-    try {
-      await resumeApi.downloadResume(resume.id, format);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Ошибка скачивания';
-      setError(message);
-      console.error('Ошибка скачивания:', err);
-    } finally {
-      setIsDownloading(null);
+  const handleDownloadMarkdown = () => {
+    if (resumeMarkdown) {
+      const blob = new Blob([resumeMarkdown], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = resumeFilename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
   };
-
-  const formats = [
-    {
-      id: 'pdf' as const,
-      icon: FileText,
-      title: 'PDF',
-      description: 'Профессиональный формат для печати и отправки',
-      color: 'from-red-500 to-orange-500',
-    },
-    {
-      id: 'docx' as const,
-      icon: FileText,
-      title: 'Word',
-      description: 'Редактируемый формат для дальнейшей работы',
-      color: 'from-blue-500 to-cyan-500',
-    },
-    {
-      id: 'txt' as const,
-      icon: FileText,
-      title: 'Текстовый файл',
-      description: 'Простой текстовый формат',
-      color: 'from-green-500 to-emerald-500',
-    },
-  ];
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-600 dark:text-gray-400">Загрузка резюме...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-12">
@@ -124,112 +140,67 @@ export function CompletionScreen({
           </div>
         )}
 
-        {/* Resume preview */}
-        {resume && (
-          <Card className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border-2">
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-bold">{resume.title}</h2>
-                <p className="text-gray-600 dark:text-gray-400">
-                  {resume.data.personalInfo?.firstName}{' '}
-                  {resume.data.personalInfo?.lastName}
-                </p>
-              </div>
-              <div className="h-px bg-gray-300 dark:bg-gray-700"></div>
-              <div className="space-y-2 text-sm">
-                {resume.data.personalInfo?.email && (
-                  <p>📧 {resume.data.personalInfo.email}</p>
-                )}
-                {resume.data.personalInfo?.phone && (
-                  <p>📱 {resume.data.personalInfo.phone}</p>
-                )}
-                {resume.data.personalInfo?.location && (
-                  <p>📍 {resume.data.personalInfo.location}</p>
-                )}
-              </div>
-              {resume.data.summary && (
+        {/* Resume info card */}
+        {isLoading ? (
+          <Card className="p-6">
+            <div className="text-center space-y-3">
+              {isCompleting ? (
                 <>
-                  <div className="h-px bg-gray-300 dark:bg-gray-700"></div>
-                  <div>
-                    <h3 className="font-semibold mb-2">О себе</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {resume.data.summary}
-                    </p>
-                  </div>
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+                  <p className="text-gray-500">Формируется резюме...</p>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-500" />
+                  <p className="text-gray-500">Загрузка резюме...</p>
                 </>
               )}
-              {resume.data.workExperience &&
-                resume.data.workExperience.length > 0 && (
-                  <>
-                    <div className="h-px bg-gray-300 dark:bg-gray-700"></div>
-                    <div>
-                      <h3 className="font-semibold mb-2">Опыт работы</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {resume.data.workExperience[0]?.position} в{' '}
-                        {resume.data.workExperience[0]?.company}
-                      </p>
-                    </div>
-                  </>
-                )}
             </div>
           </Card>
-        )}
-
-        {/* Format selection */}
-        {resume && (
-          <div className="space-y-4">
-            <h2 className="text-center font-semibold text-lg">
-              Выберите формат для скачивания
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {formats.map((format) => (
-                <Card
-                  key={format.id}
-                  className="p-6 cursor-pointer transition-all hover:shadow-lg"
-                  onClick={() => handleDownload(format.id)}
+        ) : resumeMarkdown ? (
+          <Card className="p-8 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border-2">
+            <div className="space-y-6">
+              {/* Действия с резюме */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Button
+                  onClick={onViewPreview}
+                  className="gap-2 h-20 text-lg"
+                  size="lg"
                 >
-                  <div className="space-y-3">
-                    <div
-                      className={`p-3 bg-gradient-to-br ${format.color} rounded-lg w-fit`}
-                    >
-                      <format.icon className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold mb-1">{format.title}</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {format.description}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      disabled={isDownloading === format.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(format.id);
-                      }}
-                    >
-                      {isDownloading === format.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          Загрузка...
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-4 h-4" />
-                          Скачать
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+                  <Eye className="w-6 h-6" />
+                  Посмотреть превью
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleDownloadMarkdown}
+                  className="gap-2 h-20 text-lg"
+                  size="lg"
+                >
+                  <Download className="w-6 h-6" />
+                  Скачать резюме (MD)
+                </Button>
+              </div>
             </div>
-          </div>
+          </Card>
+        ) : (
+          !error && (
+            <Card className="p-6">
+              <div className="text-center space-y-3">
+                <p className="text-gray-500">Резюме не найдено</p>
+                <p className="text-sm text-gray-400">
+                  Попробуйте завершить интервью или вернуться назад
+                </p>
+              </div>
+            </Card>
+          )
         )}
 
         {/* Actions */}
         <div className="flex justify-center gap-4 pt-4">
+          <Button variant="outline" onClick={onBack} className="gap-2">
+            <ArrowLeft className="w-4 h-4" />
+            Назад к сессиям
+          </Button>
           <Button variant="outline" onClick={onRestart}>
             Создать новое резюме
           </Button>
