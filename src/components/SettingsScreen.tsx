@@ -7,7 +7,6 @@ import { ChangePasswordDialog } from './ChangePasswordDialog';
 import {
   User,
   Mail,
-  Phone,
   Calendar,
   Edit2,
   Save,
@@ -41,10 +40,8 @@ export function SettingsScreen({
 
   // Форма редактирования
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    username: '',
     email: '',
-    phone: '',
   });
 
   useEffect(() => {
@@ -59,9 +56,9 @@ export function SettingsScreen({
       console.log('SettingsScreen: Получен ответ:', response);
       console.log(
         'SettingsScreen: Количество сессий:',
-        response.items?.length || 0
+        response.data?.length || 0
       );
-      setSessions(response.items || []);
+      setSessions(response.data || []);
     } catch (err) {
       console.error('SettingsScreen: Ошибка загрузки сессий:', err);
     }
@@ -74,10 +71,8 @@ export function SettingsScreen({
       const userData = await userApi.getProfile();
       setUser(userData);
       setFormData({
-        firstName: userData.firstName || '',
-        lastName: userData.lastName || '',
+        username: userData.username || '',
         email: userData.email || '',
-        phone: userData.phone || '',
       });
     } catch (err) {
       const message =
@@ -95,9 +90,7 @@ export function SettingsScreen({
       setError(null);
 
       const updatedUser = await userApi.updateProfile({
-        firstName: formData.firstName || undefined,
-        lastName: formData.lastName || undefined,
-        phone: formData.phone || undefined,
+        username: formData.username || undefined,
       });
 
       setUser(updatedUser);
@@ -116,10 +109,8 @@ export function SettingsScreen({
   const handleCancelEdit = () => {
     if (user) {
       setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        username: user.username || '',
         email: user.email || '',
-        phone: user.phone || '',
       });
     }
     setIsEditing(false);
@@ -224,52 +215,27 @@ export function SettingsScreen({
             </div>
 
             <div className="space-y-4">
-              {/* First Name */}
+              {/* Username */}
               <div>
                 <Label
-                  htmlFor="firstName"
+                  htmlFor="username"
                   className="flex items-center gap-2 mb-2"
                 >
                   <User className="w-4 h-4 text-gray-500" />
-                  Имя
+                  Имя пользователя
                 </Label>
                 {isEditing ? (
                   <Input
-                    id="firstName"
-                    value={formData.firstName}
+                    id="username"
+                    value={formData.username}
                     onChange={(e) =>
-                      setFormData({ ...formData, firstName: e.target.value })
+                      setFormData({ ...formData, username: e.target.value })
                     }
-                    placeholder="Введите имя"
+                    placeholder="Введите имя пользователя"
                   />
                 ) : (
                   <p className="text-gray-900 dark:text-gray-100 pl-6">
-                    {user.firstName || 'Не указано'}
-                  </p>
-                )}
-              </div>
-
-              {/* Last Name */}
-              <div>
-                <Label
-                  htmlFor="lastName"
-                  className="flex items-center gap-2 mb-2"
-                >
-                  <User className="w-4 h-4 text-gray-500" />
-                  Фамилия
-                </Label>
-                {isEditing ? (
-                  <Input
-                    id="lastName"
-                    value={formData.lastName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, lastName: e.target.value })
-                    }
-                    placeholder="Введите фамилию"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-gray-100 pl-6">
-                    {user.lastName || 'Не указано'}
+                    {user.username || 'Не указано'}
                   </p>
                 )}
               </div>
@@ -288,28 +254,6 @@ export function SettingsScreen({
                 </p>
               </div>
 
-              {/* Phone */}
-              <div>
-                <Label htmlFor="phone" className="flex items-center gap-2 mb-2">
-                  <Phone className="w-4 h-4 text-gray-500" />
-                  Телефон
-                </Label>
-                {isEditing ? (
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="+7 (___) ___-__-__"
-                  />
-                ) : (
-                  <p className="text-gray-900 dark:text-gray-100 pl-6">
-                    {user.phone || 'Не указано'}
-                  </p>
-                )}
-              </div>
-
               {/* Registration Date */}
               <div>
                 <Label className="flex items-center gap-2 mb-2">
@@ -317,7 +261,7 @@ export function SettingsScreen({
                   Дата регистрации
                 </Label>
                 <p className="text-gray-900 dark:text-gray-100 pl-6">
-                  {formatDate(user.createdAt)}
+                  {formatDate(user.created_at)}
                 </p>
               </div>
             </div>
@@ -351,7 +295,7 @@ export function SettingsScreen({
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {sessions.filter((s) => s.status === 'in_progress').length}
+                    {sessions.filter((s) => s.status === 'IN_PROGRESS').length}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     В процессе
@@ -359,7 +303,7 @@ export function SettingsScreen({
                 </div>
                 <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                   <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {sessions.filter((s) => s.status === 'completed').length}
+                    {sessions.filter((s) => s.status === 'COMPLETED').length}
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                     Завершено

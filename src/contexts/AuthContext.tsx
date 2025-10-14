@@ -1,7 +1,7 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { AuthContext } from './auth-context';
 import { authApi } from '@/services/auth.api';
-import { setAuthToken, clearAuthToken } from '@/lib/api-client';
+import { setAuthToken, clearAuthToken, isTokenExpired } from '@/lib/api-client';
 import type { User, LoginRequest, RegisterRequest } from '@/types/api';
 import { STORAGE_KEYS } from '@/config/api';
 
@@ -21,9 +21,21 @@ function AuthProvider({ children }: AuthProviderProps) {
 
     if (savedUser && token) {
       try {
-        setUser(JSON.parse(savedUser));
-      } catch {
+        // Проверяем, не истёк ли токен
+        if (isTokenExpired()) {
+          console.log('Токен истёк, очищаем данные авторизации');
+          clearAuthToken();
+          setUser(null);
+        } else {
+          // Токен валиден, восстанавливаем пользователя
+          const parsedUser = JSON.parse(savedUser);
+          setUser(parsedUser);
+          console.log('Пользователь восстановлен из localStorage:', parsedUser);
+        }
+      } catch (err) {
+        console.error('Ошибка при восстановлении пользователя:', err);
         clearAuthToken();
+        setUser(null);
       }
     }
     setIsLoading(false);
@@ -38,7 +50,7 @@ function AuthProvider({ children }: AuthProviderProps) {
       const response = await authApi.login(credentials);
 
       // Сохраняем токен и данные пользователя
-      setAuthToken(response.token, response.expiresIn);
+      setAuthToken(response.token, response.expires_in);
       localStorage.setItem(
         STORAGE_KEYS.USER_DATA,
         JSON.stringify(response.user)
@@ -61,7 +73,7 @@ function AuthProvider({ children }: AuthProviderProps) {
       const response = await authApi.register(data);
 
       // Сохраняем токен и данные пользователя
-      setAuthToken(response.token, response.expiresIn);
+      setAuthToken(response.token, response.expires_in);
       localStorage.setItem(
         STORAGE_KEYS.USER_DATA,
         JSON.stringify(response.user)

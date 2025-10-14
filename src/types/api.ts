@@ -1,15 +1,12 @@
 // API Types based on OpenAPI specification
 
-// User Types
+// User Types (UserResponse schema)
 export interface User {
   id: string;
   username: string;
   email: string;
-  firstName?: string;
-  lastName?: string;
-  phone?: string | null;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // Auth Types
@@ -22,172 +19,91 @@ export interface RegisterRequest {
   username: string;
   email: string;
   password: string;
-  firstName?: string;
-  lastName?: string;
 }
 
 export interface AuthResponse {
   token: string;
   user: User;
-  expiresIn: number;
+  expires_in: number;
 }
 
 export interface RefreshTokenResponse {
   token: string;
-  expiresIn: number;
+  user: User;
+  expires_in: number;
 }
 
-// Interview Session Types
+// Interview Session Types (SessionResponse schema)
 export interface InterviewProgress {
-  percentage: number;
-  completedSections: string[];
-  currentSection: string;
+  percentage: number; // integer 0-100
 }
 
 export interface InterviewSession {
   id: string;
-  userId: string;
-  status: 'in_progress' | 'completed' | 'abandoned';
-  language: 'ru' | 'en';
+  user_id: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'ABANDONED';
   progress: InterviewProgress;
-  messageCount: number;
-  createdAt: string;
-  updatedAt: string;
-  completedAt: string | null;
+  message_count: number;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  resume_markdown: string | null;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface CreateSessionRequest {
-  language?: 'ru' | 'en';
+  // Empty object according to SessionCreate schema
 }
 
 export interface Message {
   id: string;
-  sessionId: string;
+  session_id: string;
   role: 'user' | 'ai';
   content: string;
-  metadata?: {
-    extractedData?: Record<string, unknown>;
-  } | null;
-  createdAt: string;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
 }
 
 export interface SendMessageRequest {
-  message: string;
+  content: string; // renamed from 'message' to 'content'
 }
 
 export interface SendMessageResponse {
-  userMessage: Message;
-  aiResponse: Message;
+  user_message: Message;
+  ai_response: Message;
   progress: InterviewProgress;
 }
 
 export interface SessionMessagesResponse {
-  sessionId: string;
+  session_id: string;
   messages: Message[];
+}
+
+export interface ResumeMarkdownPayload {
+  content: string;
+  filename: string;
+  mime_type: string;
 }
 
 export interface CompleteInterviewResponse {
   session: InterviewSession;
-  resumeId: string;
+  resume_markdown: ResumeMarkdownPayload;
 }
 
-// Resume Types
-export interface PersonalInfo {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  location: string;
-  links?: Array<{
-    type: string;
-    url: string;
-  }>;
+// User Profile Update
+export interface UpdateProfileRequest {
+  username?: string | null;
+  email?: string | null;
 }
 
-export interface WorkExperience {
-  company: string;
-  position: string;
-  location: string;
-  startDate: string;
-  endDate: string | null;
-  current: boolean;
-  description: string;
-  achievements: string[];
-}
-
-export interface Education {
-  institution: string;
-  degree: string;
-  field: string;
-  startDate: string;
-  endDate: string;
-  gpa?: number | null;
-}
-
-export interface Skills {
-  technical: string[];
-  soft: string[];
-  languages?: Array<{
-    language: string;
-    level: string;
-  }>;
-}
-
-export interface Certification {
-  name: string;
-  issuer: string;
-  date: string;
-  expirationDate?: string | null;
-  credentialId?: string | null;
-}
-
-export interface Project {
-  name: string;
-  description: string;
-  technologies: string[];
-  url?: string | null;
-  startDate: string;
-  endDate?: string | null;
-}
-
-export interface ResumeData {
-  personalInfo: PersonalInfo;
-  summary: string;
-  workExperience: WorkExperience[];
-  education: Education[];
-  skills: Skills;
-  certifications?: Certification[];
-  projects?: Project[];
-}
-
-export interface Resume {
-  id: string;
-  userId: string;
-  sessionId: string;
-  title: string;
-  template: 'modern' | 'classic' | 'minimal' | 'creative';
-  language: 'ru' | 'en';
-  data: ResumeData;
-  version: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface RegenerateResumeRequest {
-  template?: string;
-  language?: string;
+export interface ChangePasswordRequest {
+  current_password: string;
+  new_password: string;
 }
 
 // Pagination
-export interface Pagination {
-  total: number;
-  limit: number;
-  offset: number;
-  hasMore: boolean;
-}
-
 export interface PaginatedResponse<T> {
-  items: T[]; // Бэкенд возвращает items, а не data
+  data: T[];
   total: number;
   limit: number;
   offset: number;
@@ -204,17 +120,4 @@ export interface ApiError {
       message: string;
     }>;
   };
-}
-
-// User Profile Update
-export interface UpdateProfileRequest {
-  firstName?: string;
-  lastName?: string;
-  email?: string;
-  phone?: string;
-}
-
-export interface ChangePasswordRequest {
-  currentPassword: string;
-  newPassword: string;
 }

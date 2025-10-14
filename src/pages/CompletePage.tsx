@@ -10,10 +10,22 @@ export function CompletePage() {
     navigate('/');
   };
 
+  const handleBack = () => {
+    navigate('/sessions');
+  };
+
+  const handleViewPreview = () => {
+    if (sessionId) {
+      navigate(`/preview?sessionId=${sessionId}`);
+    }
+  };
+
   return (
     <CompletionScreen
       sessionId={sessionId || undefined}
       onRestart={handleRestart}
+      onBack={handleBack}
+      onViewPreview={handleViewPreview}
     />
   );
 }

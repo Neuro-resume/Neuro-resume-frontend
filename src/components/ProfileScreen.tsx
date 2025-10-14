@@ -7,7 +7,6 @@ import { ChangePasswordDialog } from './ChangePasswordDialog';
 import {
   User,
   Mail,
-  Phone,
   Calendar,
   FileText,
   CheckCircle,
@@ -47,10 +46,8 @@ export function ProfileScreen({
 
   // Форма редактирования профиля
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    username: '',
     email: '',
-    phone: '',
   });
 
   // Загрузка данных пользователя и сессий
@@ -65,10 +62,8 @@ export function ProfileScreen({
       const userData = await userApi.getProfile();
       setUser(userData);
       setFormData({
-        firstName: userData.firstName || '',
-        lastName: userData.lastName || '',
+        username: userData.username,
         email: userData.email,
-        phone: userData.phone || '',
       });
     } catch (err) {
       const message =
@@ -83,7 +78,7 @@ export function ProfileScreen({
   const loadSessions = async () => {
     try {
       const response = await interviewApi.getSessions({ limit: 50, offset: 0 });
-      setSessions(response.items || []);
+      setSessions(response.data || []);
     } catch (err) {
       console.error('Ошибка загрузки сессий:', err);
     }
@@ -114,10 +109,8 @@ export function ProfileScreen({
   const handleCancelEdit = () => {
     if (user) {
       setFormData({
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        username: user.username,
         email: user.email,
-        phone: user.phone || '',
       });
     }
     setIsEditing(false);
@@ -126,11 +119,11 @@ export function ProfileScreen({
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return <Clock className="w-5 h-5 text-blue-500" />;
-      case 'abandoned':
+      case 'ABANDONED':
         return <XCircle className="w-5 h-5 text-gray-400" />;
       default:
         return <Clock className="w-5 h-5 text-gray-400" />;
@@ -139,11 +132,11 @@ export function ProfileScreen({
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'completed':
+      case 'COMPLETED':
         return 'Завершено';
-      case 'in_progress':
+      case 'IN_PROGRESS':
         return 'В процессе';
-      case 'abandoned':
+      case 'ABANDONED':
         return 'Отменено';
       default:
         return status;
@@ -242,25 +235,14 @@ export function ProfileScreen({
               {isEditing ? (
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="firstName">Имя</Label>
+                    <Label htmlFor="username">Имя пользователя</Label>
                     <Input
-                      id="firstName"
-                      value={formData.firstName}
+                      id="username"
+                      value={formData.username}
                       onChange={(e) =>
-                        setFormData({ ...formData, firstName: e.target.value })
+                        setFormData({ ...formData, username: e.target.value })
                       }
-                      placeholder="Введите имя"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Фамилия</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData({ ...formData, lastName: e.target.value })
-                      }
-                      placeholder="Введите фамилию"
+                      placeholder="Введите имя пользователя"
                     />
                   </div>
                   <div>
@@ -275,17 +257,6 @@ export function ProfileScreen({
                       placeholder="email@example.com"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="phone">Телефон</Label>
-                    <Input
-                      id="phone"
-                      value={formData.phone}
-                      onChange={(e) =>
-                        setFormData({ ...formData, phone: e.target.value })
-                      }
-                      placeholder="+7 (999) 123-45-67"
-                    />
-                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -293,12 +264,10 @@ export function ProfileScreen({
                     <User className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Имя
+                        Имя пользователя
                       </p>
                       <p className="font-medium">
-                        {user?.firstName && user?.lastName
-                          ? `${user.firstName} ${user.lastName}`
-                          : user?.username || 'Не указано'}
+                        {user?.username || 'Не указано'}
                       </p>
                     </div>
                   </div>
@@ -311,17 +280,6 @@ export function ProfileScreen({
                       <p className="font-medium">{user?.email}</p>
                     </div>
                   </div>
-                  {user?.phone && (
-                    <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
-                      <Phone className="w-5 h-5 text-gray-400" />
-                      <div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          Телефон
-                        </p>
-                        <p className="font-medium">{user.phone}</p>
-                      </div>
-                    </div>
-                  )}
                   <div className="flex items-center gap-3 text-gray-700 dark:text-gray-300">
                     <Calendar className="w-5 h-5 text-gray-400" />
                     <div>
@@ -329,8 +287,8 @@ export function ProfileScreen({
                         Дата регистрации
                       </p>
                       <p className="font-medium">
-                        {user?.createdAt
-                          ? formatDate(user.createdAt)
+                        {user?.created_at
+                          ? formatDate(user.created_at)
                           : 'Не указано'}
                       </p>
                     </div>
@@ -386,7 +344,7 @@ export function ProfileScreen({
                     <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                         {
-                          sessions.filter((s) => s.status === 'in_progress')
+                          sessions.filter((s) => s.status === 'IN_PROGRESS')
                             .length
                         }
                       </div>
@@ -397,7 +355,7 @@ export function ProfileScreen({
                     <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                         {
-                          sessions.filter((s) => s.status === 'completed')
+                          sessions.filter((s) => s.status === 'COMPLETED')
                             .length
                         }
                       </div>
@@ -408,7 +366,7 @@ export function ProfileScreen({
                     <div className="text-center p-4 bg-gray-50 dark:bg-gray-900/20 rounded-lg">
                       <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
                         {
-                          sessions.filter((s) => s.status === 'abandoned')
+                          sessions.filter((s) => s.status === 'ABANDONED')
                             .length
                         }
                       </div>
@@ -445,20 +403,15 @@ export function ProfileScreen({
                               <span className="font-medium text-gray-900 dark:text-gray-100">
                                 {getStatusText(session.status)}
                               </span>
-                              <span className="text-sm text-gray-500 dark:text-gray-400">
-                                {session.language === 'ru'
-                                  ? '🇷🇺 Русский'
-                                  : '🇬🇧 English'}
-                              </span>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
                               <div className="flex items-center gap-1">
                                 <FileText className="w-4 h-4" />
-                                <span>{session.messageCount} сообщений</span>
+                                <span>{session.message_count} сообщений</span>
                               </div>
                               <div className="flex items-center gap-1">
                                 <Calendar className="w-4 h-4" />
-                                <span>{formatDate(session.createdAt)}</span>
+                                <span>{formatDate(session.created_at)}</span>
                               </div>
                             </div>
                           </div>

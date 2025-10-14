@@ -1,37 +1,43 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { Send, StopCircle, Sparkles } from 'lucide-react';
-
-interface Message {
-  id: string;
-  role: 'ai' | 'user';
-  content: string;
-  timestamp: Date;
-}
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from './ui/dialog';
+import { Send, StopCircle, Sparkles, Loader2 } from 'lucide-react';
+import { interviewApi } from '@/services/interview.api';
+import type { Message } from '@/types/api';
 
 interface InterviewSessionProps {
+  sessionId: string;
   onComplete: () => void;
   onCancel: () => void;
 }
 
 export function InterviewSession({
+  sessionId,
   onComplete,
   onCancel,
 }: InterviewSessionProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'ai',
-      content:
-        'Здравствуйте! Я помогу вам создать профессиональное резюме. Давайте начнем с базовой информации. Как вас зовут?',
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [showEndDialog, setShowEndDialog] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    loadMessages();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -39,52 +45,63 @@ export function InterviewSession({
     }
   }, [messages]);
 
-  const handleSendMessage = () => {
+  const loadMessages = async () => {
+    try {
+      const response = await interviewApi.getMessages(sessionId);
+      setMessages(response.messages);
+    } catch (err) {
+      console.error('Ошибка загрузки сообщений:', err);
+      setError(
+        err instanceof Error ? err.message : 'Ошибка загрузки сообщений'
+      );
+    }
+  };
+
+  const handleSendMessage = async () => {
     if (!input.trim() || isTyping) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input,
-      timestamp: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
+    const messageContent = input.trim();
     setInput('');
     setIsTyping(true);
+    setError(null);
 
-    // Симуляция ответа AI
-    setTimeout(() => {
-      const aiResponses = [
-        'Спасибо! Теперь расскажите о вашем образовании. Какое учебное заведение вы окончили?',
-        'Отлично! Какой у вас опыт работы? Расскажите о вашей последней должности.',
-        'Интересно! Какие ключевые навыки вы хотели бы указать в резюме?',
-        'Замечательно! Какие достижения вы считаете наиболее значимыми в вашей карьере?',
-        'Спасибо за подробную информацию! У меня достаточно данных для создания вашего резюме.',
-      ];
+    try {
+      const response = await interviewApi.sendMessage(sessionId, {
+        content: messageContent,
+      });
 
-      const responseIndex = Math.min(
-        Math.floor(messages.length / 2),
-        aiResponses.length - 1
-      );
+      // Добавляем оба сообщения (пользователя и AI)
+      setMessages((prev) => [
+        ...prev,
+        response.user_message,
+        response.ai_response,
+      ]);
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'ai',
-        content: aiResponses[responseIndex] ?? aiResponses[0] ?? '',
-        timestamp: new Date(),
-      };
+      // Обновляем прогресс
+      setProgress(response.progress.percentage);
 
-      setMessages((prev) => [...prev, aiMessage]);
-      setIsTyping(false);
-
-      // Завершаем сессию после 5 пар вопрос-ответ
-      if (messages.length >= 9) {
-        setTimeout(() => {
-          onComplete();
+      // Проверяем, нужно ли завершить интервью
+      if (response.progress.percentage >= 100) {
+        setTimeout(async () => {
+          try {
+            await interviewApi.completeInterview(sessionId);
+            onComplete();
+          } catch (err) {
+            console.error('Ошибка завершения интервью:', err);
+            setError(
+              err instanceof Error ? err.message : 'Ошибка завершения интервью'
+            );
+          }
         }, 1000);
       }
-    }, 1500);
+    } catch (err) {
+      console.error('Ошибка отправки сообщения:', err);
+      setError(
+        err instanceof Error ? err.message : 'Ошибка отправки сообщения'
+      );
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -92,6 +109,33 @@ export function InterviewSession({
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleEarlyComplete = async () => {
+    setIsCompleting(true);
+    setError(null);
+    try {
+      // Завершаем интервью досрочно и генерируем резюме
+      await interviewApi.completeInterview(sessionId);
+      setShowEndDialog(false);
+      // Показываем сообщение о генерации резюме
+      setTimeout(() => {
+        onComplete();
+      }, 500);
+    } catch (err) {
+      console.error('Ошибка завершения интервью:', err);
+      setError(
+        err instanceof Error ? err.message : 'Ошибка завершения интервью'
+      );
+      setShowEndDialog(false);
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const handleReturnLater = () => {
+    setShowEndDialog(false);
+    onCancel();
   };
 
   return (
@@ -107,17 +151,21 @@ export function InterviewSession({
               <h2 className="font-semibold">Сеанс интервью</h2>
               <p className="text-sm text-gray-500">
                 {messages.length}{' '}
-                {messages.length === 1 ? 'сообщение' : 'сообщений'}
+                {messages.length === 1 ? 'сообщение' : 'сообщений'} • Прогресс:{' '}
+                {progress}%
               </p>
             </div>
           </div>
-          <Button variant="outline" onClick={onCancel} className="gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setShowEndDialog(true)}
+            className="gap-2"
+          >
             <StopCircle className="w-4 h-4" />
             Завершить досрочно
           </Button>
         </div>
-      </div>
-
+      </div>{' '}
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
@@ -165,29 +213,89 @@ export function InterviewSession({
             </div>
           )}
         </div>
-      </div>
 
+        {error && (
+          <div className="max-w-3xl mx-auto mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-red-600 dark:text-red-400">{error}</p>
+          </div>
+        )}
+      </div>
       {/* Input */}
-      <div className="border-t border-gray-200 dark:border-gray-800 px-4 py-4 bg-white dark:bg-gray-950">
-        <div className="max-w-3xl mx-auto flex gap-3">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Введите ваш ответ..."
-            className="min-h-[60px] max-h-[200px] resize-none"
-            disabled={isTyping}
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!input.trim() || isTyping}
-            className="px-6 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
-          >
-            <Send className="w-5 h-5" />
-          </Button>
+      <div className="border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+        <div className="max-w-3xl mx-auto px-4 py-4">
+          <div className="flex gap-3 items-end">
+            <div className="flex-1">
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Введите ваш ответ... (Enter для отправки, Shift+Enter для новой строки)"
+                className="min-h-[60px] max-h-[200px] resize-none"
+                disabled={isTyping}
+              />
+            </div>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!input.trim() || isTyping}
+              size="lg"
+              className="px-6 h-[60px] bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 transition-all"
+            >
+              {isTyping ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </Button>
+          </div>
         </div>
       </div>
+      {/* End Dialog */}
+      <Dialog open={showEndDialog} onOpenChange={setShowEndDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Завершить интервью?</DialogTitle>
+            <DialogDescription>
+              Выберите действие. При досрочном завершении будет сформировано
+              резюме на основе собранной информации.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              <Button
+                variant="outline"
+                onClick={() => setShowEndDialog(false)}
+                disabled={isCompleting}
+                className="w-full sm:w-auto"
+              >
+                Отмена
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleReturnLater}
+                disabled={isCompleting}
+                className="w-full sm:w-auto"
+              >
+                Вернуться позже
+              </Button>
+              <Button
+                onClick={handleEarlyComplete}
+                disabled={isCompleting}
+                className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+              >
+                {isCompleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Формируется резюме...
+                  </>
+                ) : (
+                  'Завершить досрочно'
+                )}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
