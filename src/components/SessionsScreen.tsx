@@ -161,14 +161,33 @@ export function SessionsScreen({
   const handleDownloadResume = async (sessionId: string) => {
     try {
       setDownloadingSessionId(sessionId);
-      const data = await interviewApi.getSessionResume(sessionId);
+
+      // Находим сессию в локальном состоянии
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session) {
+        throw new Error('Сессия не найдена');
+      }
+
+      let content: string;
+      let filename: string;
+
+      // Если резюме уже есть в сессии, используем его
+      if (session.resume_markdown) {
+        content = session.resume_markdown;
+        filename = `resume-${sessionId.slice(0, 8)}.md`;
+      } else {
+        // Иначе получаем через API
+        const data = await interviewApi.getSessionResume(sessionId);
+        content = data.content;
+        filename = data.filename || `resume-${sessionId.slice(0, 8)}.md`;
+      }
 
       // Создаем и скачиваем файл
-      const blob = new Blob([data.content], { type: 'text/markdown' });
+      const blob = new Blob([content], { type: 'text/markdown' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = data.filename || 'resume.md';
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -82,16 +82,9 @@ export function InterviewSession({
 
       // Проверяем, нужно ли завершить интервью
       if (response.progress.percentage >= 100) {
-        setTimeout(async () => {
-          try {
-            await interviewApi.completeInterview(sessionId);
-            onComplete();
-          } catch (err) {
-            console.error('Ошибка завершения интервью:', err);
-            setError(
-              err instanceof Error ? err.message : 'Ошибка завершения интервью'
-            );
-          }
+        // Сессия завершается автоматически на бэкенде, просто переходим к результату
+        setTimeout(() => {
+          onComplete();
         }, 1000);
       }
     } catch (err) {
